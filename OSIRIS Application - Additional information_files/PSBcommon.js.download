@@ -1,0 +1,1070 @@
+var fields = new Array();
+var errorField = null;
+var win;
+var field;
+var timeoutTimer;
+
+function callHelpForm(param)
+{
+  if (param != null)
+  {
+    win = window.open('Help.do?s='+param,'Help','left=20,top=20,location=0,width=950,height=850,scrollbars=yes,toolbar=0,resizable=1');
+  }
+  else
+  {
+    win = window.open('Help.do','Help','left=20,top=20,location=0,width=950,height=850,scrollbars=yes,toolbar=0,resizable=1');
+  }
+  win.focus();
+}
+
+function callCatalog(url)
+{
+  win=openWindow(window, url,"Catalogus",{width:900,height:700},false,"document", dummy);
+}
+
+function ignoreBackSpace(event)
+{
+  /* IE has it's own window.event */
+  if (_agent.isIE){
+  	event = window.event;
+	}
+		
+	var keyCode = event.keyCode;
+	if (keyCode == 8 &&
+		((event.target || event.srcElement).tagName != "TEXTAREA") && 
+		((event.target || event.srcElement).tagName != "INPUT")) { 
+		
+		if (navigator.userAgent.toLowerCase().indexOf("msie") == -1) {
+      //			alert("prevented others");
+      event.stopPropagation();
+		} else {
+//			alert("prevented IE");
+			event.returnValue = false;
+		}
+		
+		return false;
+	}
+
+  
+  return true;
+}
+function callForm(url, name, obj)
+{
+  field = obj;
+  win=openWindow(window, url, name.replace(/[ ]+/g, '_'),{width:900,height:500}, false, "document", dummy);
+}
+
+function dummy()
+{
+  field.focus();
+}   
+
+//
+// Deze functie zet de input focus op het opgegeven veld, of op het defautl veld
+function setInputFocus(form, field, scrollby, defaultField )
+{
+    var fld = field;
+    var scroll = 0;
+    if(fld.length == 0) { fld = defaultField};
+    if (scrollby != 0)
+    {
+      //alert('scroll' + scrollby + ' current scroll: ' + f_scrollTop());
+        scroll = scrollby;
+        window.scroll(0,scroll);
+    }
+    
+    if (fld == null)
+    {
+      return;
+    }
+    
+    try 
+    {
+      document.forms[form].elements[fld].focus();
+      
+    }
+    catch (e)
+    {
+      try
+      {
+        document.forms[form].elements['VB_' + fld].focus();
+       
+      }
+      catch (e)
+      {
+        try
+        {
+          document.forms[form].elements['VB_Dummy' + fld].focus();
+        
+        }
+        catch (e)
+        {
+          return;
+          //alert('The field ' + fld + ' does not exists!');
+        }
+      }
+    }
+}
+function setFieldLeeg(field)
+{
+   if (field != null)
+   {
+      document.forms["form0"].elements[field].value = '';
+   }
+   
+}
+
+
+function onLoadEvent(event_name)
+{
+    if (event_name.length != 0)
+    {
+       submitForm('form0', true, {'event':event_name}); 
+    }
+}
+
+function processOnEnter(field, evt, event_name) 
+{ 
+   var key; 
+   if (window.event)
+   {
+      key = window.event.keyCode
+   }
+   else
+   {
+      key = evt.which;
+   }
+
+   
+   if (key == 13)
+   { 
+     submitForm('form0', true, {'event':event_name}); 
+     return true; 
+   } 
+   else
+   {
+     return true;
+   }
+} 
+
+function processOnEnterPartial(field, evt, event_name, targets) 
+{ 
+   var key; 
+   if (window.event)
+   {
+      key = window.event.keyCode
+   }
+   else
+   {
+      key = evt.which;
+   }
+
+   
+   if (key == 13)
+   { 
+     _uixspu('form0',1,event_name,0,targets,1,0);
+     return true; 
+   } 
+   else
+   {
+     return true;
+   }
+} 
+
+function IgnoreOnEnter2(field, evt, eventname, doIt)
+{
+  if (doIt == 1)
+  {
+    return IgnoreOnEnter(field, evt, eventname);
+  }
+  return true;
+  
+  
+}
+
+function IgnoreOnEnter(field, evt, event_name) 
+{ 
+   var key; 
+   if (window.event)
+   {
+      key = window.event.keyCode
+   }
+   else
+   {
+      key = evt.which;
+   }
+
+   
+   if (key == 13)
+   { 
+     return false; 
+   } 
+   return true;
+
+
+} 
+
+
+
+/*
+ *  Deze functie zet de input focus naar de buttons van de confirm popup
+ */
+function setConfirmFocus(form, field)
+{
+    var fld = field;
+    if (field.indexOf("confirmButton") == -1){return};
+    if(fld.length == 0) { fld = defaultField};
+    if (fld.length != 0)
+    {
+      var f = document.forms[form];
+      for(var j=0; j<f.elements.length; j++)
+      {
+         if (f.elements[j].name == fld)
+         {
+            f.elements[j].focus();
+            break;
+         }
+      }
+    }
+}
+
+function formAutocomplete(form, onoff)
+{
+    var f = document.forms[form];
+    f.setAttribute("autocomplete", onoff);
+    for(var j=0; j<f.elements.length; j++)
+    {
+      if (f.elements[j].name == null || f.elements[j].name == "" )
+      {
+      continue;
+      }
+      if (f.elements[j].name.indexOf("VB_") != -1)
+      {
+            f.elements[j].setAttribute("autocomplete", onoff);
+      }
+      else if (f.elements[j].id.indexOf("VB_") != -1)
+      {
+      f.elements[j].setAttribute("autocomplete", onoff);
+      }
+    }
+}
+
+
+//-----------------------------------------------------------------
+//  Deze functie laad alle velden in een array zodat het niet steeds opnieuw
+//  moet gebeuren
+//-----------------------------------------------------------------
+function loadFields(form)
+{
+    // an array of form elements
+    var f = document.forms[form];
+    var fieldName;
+
+//    String.prototype.substitute = function(was, becomes) {
+//      return this.split(was).join(becomes);
+//   }
+
+        // iterate through each element
+        for(var j=0; j<f.elements.length; j++)
+        {
+            // if we find an input or select
+            if(f.elements[j].type == "text")
+            {
+                // See if we are in a tablefield
+                fieldName = f.elements[j].name;
+                if (
+                  (fieldName.indexOf(":") != -1) &&
+                  (fieldName.lastIndexOf(":") != -1) &&
+                  (fieldName.indexOf(":") != fieldName.lastIndexOf(":"))
+                )
+                {
+                    // add it to our fields array
+                    fields[fields.length] = f.elements[j];
+                    f.elements[j].setAttribute("autocomplete","off");
+
+                }
+            }
+        }
+}
+
+//-------------------------------------------------------------------
+// getElementIndex(input_object)
+//   Pass an input object, returns index in form.elements[] for the object
+//   Returns -1 if error
+//-------------------------------------------------------------------
+function getElementIndex(obj) {
+	var theform = obj.form;
+	for (var i=0; i<fields.length; i++) {
+		if (obj.name == fields[i].name) {
+			return i;
+			}
+		}
+	return -1;
+	}
+
+// -------------------------------------------------------------------
+// scrollDown(input_object)
+//   Pass an form input object. Will focus() the next field in the form
+//   after the passed element.
+//   a) Will not focus to hidden or disabled fields
+//   b) If end of form is reached, it will loop to beginning
+//   c) If it loops through and reaches the original field again without
+//      finding a valid field to focus, it stops
+// -------------------------------------------------------------------
+function scrollDown(obj) {
+	if (navigator.platform.toUpperCase().indexOf("SUNOS") != -1) {
+		obj.blur(); return; // Sun's onFocus() is messed up
+		}
+	var theform = obj.form;
+  var fieldName = obj.name;
+  var pos = fieldName.lastIndexOf(":");
+  if(pos != -1)
+  {
+     fieldName = fieldName.substr(0,pos+1);
+  }
+  else
+  {
+     return;
+  }
+	var i = getElementIndex(obj);
+	var j=i+1;
+	if (j >= fields.length) { j=0; }
+	if (i == -1) { return; }
+	while (j != i) {
+    pos = fields[j].name.indexOf(fieldName);
+		if ((fields[j].type!="hidden") && 
+		    (fields[j].name != fields[i].name) && 
+        (pos != -1) &&
+			(!fields[j].disabled)) 
+    {
+       var f=document.getElementById(fields[j].id);
+       if(!f){;break;}
+		   f.focus();
+		   break;
+		}
+		j++;
+		if (j >= fields.length) { j=0; }
+		}
+	}
+
+//--------------------------------------------------------------------------
+// Scroll naar de vorige regel
+//
+//--------------------------------------------------------------------------
+function scrollUp(obj) {
+	if (navigator.platform.toUpperCase().indexOf("SUNOS") != -1) {
+		obj.blur(); return; // Sun's onFocus() is messed up
+		}
+	var theform = obj.form;
+  var fieldName = obj.name;
+  var pos = fieldName.lastIndexOf(":");
+  if(pos != -1)
+  {
+     fieldName = fieldName.substr(0,pos+1);
+  }
+  else
+  {
+     return;
+  }
+	var i = getElementIndex(obj);
+	var j=i-1;
+	if (j < 0) { j= fields.length -1; }
+	if (i == -1) { return; }
+	while (j != i) {
+		if ((fields[j].type!="hidden") && 
+		    (fields[j].name != fields[i].name) && 
+        (fields[j].name.indexOf(fieldName) != -1) &&
+			(!fields[j].disabled)) 
+    {
+       var f=document.getElementById(fields[j].id);
+       if(!f){;break;}
+		   f.focus();
+		   break;
+		}
+		j--;
+		if (j < 0 ) { j=fields.length-1;}
+  
+    
+		}
+	}
+
+
+//--------------------------------------------------------------------------
+// Deze functie zorgt er voor dat er by een arrow-up of down naar de volgende
+// of vorige regel wordt gesprongen
+//--------------------------------------------------------------------------
+function processOnKeyDown(field, evt) 
+{ 
+   var key; 
+   var obj = field;
+   
+   if (window.event)
+   {
+      key = window.event.keyCode
+   }
+   else
+   {
+      key = evt.which;
+   }
+   
+   if (key ==40)
+   {
+      scrollDown(field);
+   }
+   if (key ==38)
+   {
+      scrollUp(field);
+   }
+   return true
+} 
+function checkNumeriek(objName, oldValue, errorTekst)
+{
+  var invoer = objName.value;
+  
+  if (invoer == null || invoer == '')
+  {
+     return true;
+  }
+  
+  if (isNaN(invoer) || invoer <= 0 )
+  {
+    var tekst = errorTekst.replace("{0}", invoer);
+    alert(tekst);
+    objName.value = oldValue;
+
+    if(navigator.userAgent.indexOf("Firefox") == -1)
+    {
+      objName.focus();
+      objName.select();
+      
+    }
+    return false;
+  }
+  else
+  {
+    objName.value = parseInt(invoer);
+    return true;
+  }
+}
+
+function checkNumeriekGoto(form, field)
+{
+  if (document.forms[form].elements[field] == null || document.forms[form].elements[field].value == '')
+  {
+    return false;
+  }
+  var invoer = document.forms[form].elements[field].value;
+  if (isNaN(invoer) || invoer <= 0)
+  {
+    return true;
+  }
+  else
+  {
+    return false;
+  }
+  return false;
+  
+}
+
+//--------------------------------------------------------------------------
+//
+//  DATE FUNCTIONS
+//
+//--------------------------------------------------------------------------
+// Deze functie kijkt of een datum in de toekomst ligt
+//
+// true   datum ligt in de toekomst
+// false  datum ligt niet in de toekomst
+//
+function datumInToekomst(objName, errortekst)
+{
+  var curDate = new Date();
+  var dateField = objName;
+  var strDate = dateField.value;
+  var dateValue = parseDate(strDate, true);
+  if(dateValue == null)
+  {
+     return false;
+  }
+
+  if(curDate < dateValue)
+  {
+     alert(errortekst);
+     if(navigator.userAgent.indexOf("Mozilla") == -1)
+     {
+       dateField.focus();
+       dateField.select();
+     }
+     return true;
+  }
+  else
+  {
+     return false;
+  }
+    
+}
+
+function datumInToekomstServer(objName, sysdate, errortekst)
+{
+  var curDate = parseDate(sysdate, true);
+  if(curDate == null)
+  {
+    curDate = new Date();
+  }
+
+  var dateField = objName;
+  var strDate = dateField.value;
+  var dateValue = parseDate(strDate, true);
+  if(dateValue == null)
+  {
+     return false;
+  }
+  if(curDate < dateValue)
+  {
+     alert(errortekst);
+     if(navigator.userAgent.indexOf("Mozilla") == -1)
+     {
+       dateField.focus();
+       dateField.select();
+     }
+     return true;
+  }
+  else
+  {
+     return false;
+  }
+    
+}
+
+
+// Deze functie controleert of de ingevoerde waarde een datum is, en vult het
+// veld met een datum die aan het formaat voldoet
+//
+// true   datum is geldig
+// false  datum is niet geldig
+//
+function checkdate(objName, formaat, errortekst) {
+var dateField = objName;
+var strDate = dateField.value;
+var strDay;
+var strMonth;
+var strYear;
+var strDateArray;
+
+if (strDate.length == 0)
+{
+   return true;
+}
+var dateValue=null;
+strDate = chkdate(strDate);
+
+if(strDate != null)
+{
+   dateValue = parseDate(strDate, true);
+}
+
+if (dateValue != null)
+{
+   var strDate = formatDate(dateValue, formaat);
+   dateField.value = strDate;
+   return true;
+}
+else
+{
+  var tekst = errortekst.replace("{0}", dateField.value);
+  tekst = tekst.replace("{1}", formaat);
+  dateField.value = "";
+  alert(tekst);
+  if(navigator.userAgent.indexOf("Mozilla") == -1)
+  {
+  dateField.focus();
+  dateField.select();
+  }
+  return false;
+}
+}
+
+//-------------------------------------------------------------------------
+//  Deze functie vult de datum aan
+//
+function chkdate(strDate)
+{
+var strSeparatorArray = new Array("-"," ", "/",".");
+var strDay;
+var strMonth;
+var strYear;
+var strDateArray;
+var booFound = false;
+
+for (intElementNr = 0; intElementNr < strSeparatorArray.length; intElementNr++) {
+  if (strDate.indexOf(strSeparatorArray[intElementNr]) != -1) {
+     strDateArray = strDate.split(strSeparatorArray[intElementNr]);
+     if (strDateArray.length != 3) {
+        return null;
+     }
+     else {
+        strDay = strDateArray[0];
+        strMonth = strDateArray[1];
+        strYear = strDateArray[2];
+        if (strYear.length == 1)
+        {
+           strYear = '0' + strYear;
+        }
+        if (strYear.length != 2 && strYear.length != 4)
+        {
+           return null;
+        }
+        return strDate;
+     }
+   }
+}
+
+   if (strDate.length>5) {
+      strDay = strDate.substr(0, 2);
+      strMonth = strDate.substr(2, 2);
+      strYear = strDate.substr(4);
+        if (strYear.length != 2 && strYear.length != 4)
+        {
+           return null;
+        }
+      return strDay + "/" + strMonth + "/" + strYear;
+   }
+   else
+   {
+      return null;
+   }
+
+}
+// ------------------------------------------------------------------
+// These functions use the same 'format' strings as the 
+// java.text.SimpleDateFormat class, with minor exceptions.
+// The format string consists of the following abbreviations:
+// 
+// Field        | Full Form          | Short Form
+// -------------+--------------------+-----------------------
+// Year         | yyyy (4 digits)    | yy (2 digits), y (2 or 4 digits)
+// Month        | MMM (name or abbr.)| MM (2 digits), M (1 or 2 digits)
+//              | NNN (abbr.)        |
+// Day of Month | dd (2 digits)      | d (1 or 2 digits)
+// Day of Week  | EE (name)          | E (abbr)
+// Hour (1-12)  | hh (2 digits)      | h (1 or 2 digits)
+// Hour (0-23)  | HH (2 digits)      | H (1 or 2 digits)
+// Hour (0-11)  | KK (2 digits)      | K (1 or 2 digits)
+// Hour (1-24)  | kk (2 digits)      | k (1 or 2 digits)
+// Minute       | mm (2 digits)      | m (1 or 2 digits)
+// Second       | ss (2 digits)      | s (1 or 2 digits)
+// AM/PM        | a                  |
+//
+// NOTE THE DIFFERENCE BETWEEN MM and mm! Month=MM, not mm!
+// Examples:
+//  "MMM d, y" matches: January 01, 2000
+//                      Dec 1, 1900
+//                      Nov 20, 00
+//  "M/d/yy"   matches: 01/20/00
+//                      9/2/00
+//  "MMM dd, yyyy hh:mm:ssa" matches: "January 01, 2000 12:30:45AM"
+// ------------------------------------------------------------------
+
+var MONTH_NAMES=new Array('January','February','March','April','May','June','July','August','September','October','November','December','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec');
+var DAY_NAMES=new Array('Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sun','Mon','Tue','Wed','Thu','Fri','Sat');
+function LZ(x) {return(x<0||x>9?"":"0")+x}
+
+// ------------------------------------------------------------------
+// isDate ( date_string, format_string )
+// Returns true if date string matches format of format string and
+// is a valid date. Else returns false.
+// It is recommended that you trim whitespace around the value before
+// passing it to this function, as whitespace is NOT ignored!
+// ------------------------------------------------------------------
+function isDate(val,format) {
+	var date=getDateFromFormat(val,format);
+	if (date==0) { return false; }
+	return true;
+	}
+
+// -------------------------------------------------------------------
+// compareDates(date1,date1format,date2,date2format)
+//   Compare two date strings to see which is greater.
+//   Returns:
+//   1 if date1 is greater than date2
+//   0 if date2 is greater than date1 of if they are the same
+//  -1 if either of the dates is in an invalid format
+// -------------------------------------------------------------------
+function compareDates(date1,dateformat1,date2,dateformat2) {
+	var d1=getDateFromFormat(date1,dateformat1);
+	var d2=getDateFromFormat(date2,dateformat2);
+	if (d1==0 || d2==0) {
+		return -1;
+		}
+	else if (d1 > d2) {
+		return 1;
+		}
+	return 0;
+	}
+
+// ------------------------------------------------------------------
+// formatDate (date_object, format)
+// Returns a date in the output format specified.
+// The format string uses the same abbreviations as in getDateFromFormat()
+// ------------------------------------------------------------------
+function formatDate(date,format) {
+	format=format+"";
+	var result="";
+	var i_format=0;
+	var c="";
+	var token="";
+	var y=date.getFullYear()+"";
+	var M=date.getMonth()+1;
+	var d=date.getDate();
+	var E=date.getDay();
+	var H=date.getHours();
+	var m=date.getMinutes();
+	var s=date.getSeconds();
+	var yyyy,yy,MMM,MM,dd,hh,h,mm,ss,ampm,HH,H,KK,K,kk,k;
+	// Convert real date parts into formatted versions
+	var value=new Object();
+	if (y.length < 4) {y=""+(y-0+1900);}
+	value["y"]=""+y;
+	value["yyyy"]=y;
+	value["yy"]=y.substring(2,4);
+	value["M"]=M;
+	value["MM"]=LZ(M);
+	value["MMM"]=MONTH_NAMES[M-1];
+	value["NNN"]=MONTH_NAMES[M+11];
+	value["d"]=d;
+	value["dd"]=LZ(d);
+	value["E"]=DAY_NAMES[E+7];
+	value["EE"]=DAY_NAMES[E];
+	value["H"]=H;
+	value["HH"]=LZ(H);
+	if (H==0){value["h"]=12;}
+	else if (H>12){value["h"]=H-12;}
+	else {value["h"]=H;}
+	value["hh"]=LZ(value["h"]);
+	if (H>11){value["K"]=H-12;} else {value["K"]=H;}
+	value["k"]=H+1;
+	value["KK"]=LZ(value["K"]);
+	value["kk"]=LZ(value["k"]);
+	if (H > 11) { value["a"]="PM"; }
+	else { value["a"]="AM"; }
+	value["m"]=m;
+	value["mm"]=LZ(m);
+	value["s"]=s;
+	value["ss"]=LZ(s);
+	while (i_format < format.length) {
+		c=format.charAt(i_format);
+		token="";
+		while ((format.charAt(i_format)==c) && (i_format < format.length)) {
+			token += format.charAt(i_format++);
+			}
+		if (value[token] != null) { result=result + value[token]; }
+		else { result=result + token; }
+		}
+	return result;
+	}
+	
+// ------------------------------------------------------------------
+// Utility functions for parsing in getDateFromFormat()
+// ------------------------------------------------------------------
+function _isInteger(val) {
+	var digits="1234567890";
+	for (var i=0; i < val.length; i++) {
+		if (digits.indexOf(val.charAt(i))==-1) { return false; }
+		}
+	return true;
+	}
+function _getInt(str,i,minlength,maxlength) {
+	for (var x=maxlength; x>=minlength; x--) {
+		var token=str.substring(i,i+x);
+		if (token.length < minlength) { return null; }
+		if (_isInteger(token)) { return token; }
+		}
+	return null;
+	}
+	
+// ------------------------------------------------------------------
+// getDateFromFormat( date_string , format_string )
+//
+// This function takes a date string and a format string. It matches
+// If the date string matches the format string, it returns the 
+// getTime() of the date. If it does not match, it returns 0.
+// ------------------------------------------------------------------
+function getDateFromFormat(val,format) {
+	val=val+"";
+	format=format+"";
+	var i_val=0;
+	var i_format=0;
+	var c="";
+	var token="";
+	var token2="";
+	var x,y;
+	var now=new Date();
+	var year=now.getYear();
+	var month=now.getMonth()+1;
+	var date=1;
+	var hh=now.getHours();
+	var mm=now.getMinutes();
+	var ss=now.getSeconds();
+	var ampm="";
+	
+	while (i_format < format.length) {
+		// Get next token from format string
+
+		c=format.charAt(i_format);
+		token="";
+		while ((format.charAt(i_format)==c) && (i_format < format.length)) {
+			token += format.charAt(i_format++);
+			}
+		// Extract contents of value based on format token
+		if (token=="yyyy" || token=="yy" || token=="y") {
+			if (token=="yyyy") { x=4;y=4; }
+			if (token=="yy")   { x=2;y=2; }
+			if (token=="y")    { x=1;y=4; }
+			year=_getInt(val,i_val,x,y);
+			if (year==null) { return 0; }
+			i_val += year.length;
+			if (year.length==2 || year.length == 1) {
+				if (year > 50) { year=1900+(year-0); }
+				else { year=2000+(year-0); }
+				}
+			}
+		else if (token=="MMM"||token=="NNN"){
+			month=0;
+			for (var i=0; i<MONTH_NAMES.length; i++) {
+				var month_name=MONTH_NAMES[i];
+				if (val.substring(i_val,i_val+month_name.length).toLowerCase()==month_name.toLowerCase()) {
+					if (token=="MMM"||(token=="NNN"&&i>11)) {
+						month=i+1;
+						if (month>12) { month -= 12; }
+						i_val += month_name.length;
+						break;
+						}
+					}
+				}
+			if ((month < 1)||(month>12)){return 0;}
+			}
+		else if (token=="EE"||token=="E"){
+			for (var i=0; i<DAY_NAMES.length; i++) {
+				var day_name=DAY_NAMES[i];
+				if (val.substring(i_val,i_val+day_name.length).toLowerCase()==day_name.toLowerCase()) {
+					i_val += day_name.length;
+					break;
+					}
+				}
+			}
+		else if (token=="MM"||token=="M") {
+			month=_getInt(val,i_val,token.length,2);
+			if(month==null||(month<1)||(month>12)){return 0;}
+			i_val+=month.length;}
+		else if (token=="dd"||token=="d") {
+			date=_getInt(val,i_val,token.length,2);
+			if(date==null||(date<1)||(date>31)){return 0;}
+			i_val+=date.length;}
+		else if (token=="hh"||token=="h") {
+			hh=_getInt(val,i_val,token.length,2);
+			if(hh==null||(hh<1)||(hh>12)){return 0;}
+			i_val+=hh.length;}
+		else if (token=="HH"||token=="H") {
+			hh=_getInt(val,i_val,token.length,2);
+			if(hh==null||(hh<0)||(hh>23)){return 0;}
+			i_val+=hh.length;}
+		else if (token=="KK"||token=="K") {
+			hh=_getInt(val,i_val,token.length,2);
+			if(hh==null||(hh<0)||(hh>11)){return 0;}
+			i_val+=hh.length;}
+		else if (token=="kk"||token=="k") {
+			hh=_getInt(val,i_val,token.length,2);
+			if(hh==null||(hh<1)||(hh>24)){return 0;}
+			i_val+=hh.length;hh--;}
+		else if (token=="mm"||token=="m") {
+			mm=_getInt(val,i_val,token.length,2);
+			if(mm==null||(mm<0)||(mm>59)){return 0;}
+			i_val+=mm.length;}
+		else if (token=="ss"||token=="s") {
+			ss=_getInt(val,i_val,token.length,2);
+			if(ss==null||(ss<0)||(ss>59)){return 0;}
+			i_val+=ss.length;}
+		else if (token=="a") {
+			if (val.substring(i_val,i_val+2).toLowerCase()=="am") {ampm="AM";}
+			else if (val.substring(i_val,i_val+2).toLowerCase()=="pm") {ampm="PM";}
+			else {return 0;}
+			i_val+=2;}
+		else {
+			if (val.substring(i_val,i_val+token.length)!=token) {return 0;}
+			else {i_val+=token.length;}
+			}
+		}
+	// If there are any trailing characters left in the value, it doesn't match
+	if (i_val != val.length) { return 0; }
+	// Is date valid for month?
+	if (month==2) {
+		// Check for leap year
+		if ( ( (year%4==0)&&(year%100 != 0) ) || (year%400==0) ) { // leap year
+			if (date > 29){ return 0; }
+			}
+		else { if (date > 28) { return 0; } }
+		}
+	if ((month==4)||(month==6)||(month==9)||(month==11)) {
+		if (date > 30) { return 0; }
+		}
+
+	// Correct hours value
+	if (hh<12 && ampm=="PM") { hh=hh-0+12; }
+	else if (hh>11 && ampm=="AM") { hh-=12; }
+	var newdate=new Date(year,month-1,date,hh,mm,ss);
+	return newdate.getTime();
+	}
+
+// ------------------------------------------------------------------
+// parseDate( date_string [, prefer_euro_format] )
+//
+// This function takes a date string and tries to match it to a
+// number of possible date formats to get the value. It will try to
+// match against the following international formats, in this order:
+// y-M-d   MMM d, y   MMM d,y   y-MMM-d   d-MMM-y  MMM d
+// M/d/y   M-d-y      M.d.y     MMM-d     M/d      M-d
+// d/M/y   d-M-y      d.M.y     d-MMM     d/M      d-M
+// A second argument may be passed to instruct the method to search
+// for formats like d/M/y (european format) before M/d/y (American).
+// Returns a Date object or null if no patterns match.
+// ------------------------------------------------------------------
+function parseDate(val) {
+	var preferEuro=true;//(arguments.length==2)?arguments[1]:false;
+	generalFormats=new Array('y-M-d','MMM d, y','MMM d,y','y-MMM-d','d-MMM-y','MMM d');
+	monthFirst=new Array('M/d/y','M-d-y','M.d.y','MMM-d','M/d','M-d');
+	dateFirst =new Array('d/M/y','d-M-y','d.M.y','d-MMM','d/M','d-M');
+//	var checkList=new Array('generalFormats',preferEuro?'dateFirst':'monthFirst',preferEuro?'monthFirst':'dateFirst');
+	var checkList=new Array('dateFirst');
+	var d=null;
+	for (var i=0; i<checkList.length; i++) {
+		var l=window[checkList[i]];
+		for (var j=0; j<l.length; j++) {
+			d=getDateFromFormat(val,l[j]);
+			if (d!=0) {return new Date(d); }
+			}
+		}
+	return null;
+	}
+function getScrollOffset(field)
+{
+  document.forms[0].elements[field].value = f_scrollTop();
+}
+
+function f_scrollTop() {
+  return f_filterResults (
+		window.pageYOffset ? window.pageYOffset : 0,
+		document.documentElement ? document.documentElement.scrollTop : 0,
+		document.body ? document.body.scrollTop : 0
+	);
+}
+
+function f_filterResults(n_win, n_docel, n_body) {
+	var n_result = n_win ? n_win : 0;
+	if (n_docel && (!n_result || (n_result > n_docel)))
+		n_result = n_docel;
+	return n_body && (!n_result || (n_result > n_body)) ? n_body : n_result;
+}
+function refreshTimer( timeOut, timeOutMsg){
+  clearTimeout(timeoutTimer);
+  var currentTime = new Date();
+  currentTime.setTime(currentTime.getTime() + timeOut)
+  var hours = currentTime.getHours();
+  var minutes = currentTime.getMinutes();
+  if (minutes < 10)
+  {
+    minutes = "0" + minutes;
+  }
+  var seconds = currentTime.getSeconds();
+  if (seconds < 10)
+  {
+    seconds = "0" + seconds;
+  }  
+  var tijd = hours + ":" + minutes + ":" + seconds;
+
+  var command = "alert('" + timeOutMsg + " (" + tijd + ")" +"'); submitForm('form0', true, {'event':'DummyEvent'});";
+  timeoutTimer = setTimeout(command, timeOut);
+  }
+  
+function showNotificationCallback(message) {
+    showNotification(message);
+}
+
+function showNotificationJavaScript(message) {
+    return function (componentEvent) {
+        showNotification(message);
+    };
+}
+
+function setWF(doIt)
+{
+  if (doIt)
+  {
+  setTypeSecret("wachtwoordNieuw");
+  setTypeSecret("wachtwoordNieuw2");
+  }
+}
+
+function noCopy(field)
+{
+ if (field == null)
+   {
+   return;
+   }
+
+	$(document).find('[name$="'+field+'"]').bind('cut copy paste', function (e) {
+		e.preventDefault();
+	});
+	
+	//Disable mouse right click
+	$(document).find('[name$="'+field+'"]').on("contextmenu",function(e){
+		return false;
+	});
+
+
+}
+
+
+
+
+function setTypeSecret(field)
+{
+   
+  setTimeout(function () {
+  try {
+  $(document).find('[name$="'+field+'"]')[0].type='password';
+  }
+  catch(e)
+  {
+  return;
+  }
+  },
+        10);
+}
+
+function doNotificationFadeOut()
+{
+
+var duration = 2000;
+        setTimeout(function () {
+           $("#saveMessageHeader").fadeOut('slow');
+           },
+        duration);
+        setTimeout(function () {
+           $("#saveMessageFooter").fadeOut('slow');
+           },
+        duration);
+}
+
+function checkLength(field, max, errorTekst) {
+    elementLength = field.value.length;
+    if (elementLength > max) {
+        field.value = field.value.substr(0,max);
+        alert(errorTekst);
+        return false;
+    }
+
+    return true;
+}
+
+
+
